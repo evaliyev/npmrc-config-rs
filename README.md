@@ -26,15 +26,15 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-npmrc-config-rs = "0.1"
+npmrc-config-rs = "0.1.1"
 ```
 
 ## Quick Start
 
 ```rust
-use npmrc_config::{NpmrcConfig, Credentials};
+use npmrc_config_rs::{NpmrcConfig, Credentials};
 
-fn main() -> npmrc_config::Result<()> {
+fn main() -> npmrc_config_rs::Result<()> {
     // Load config from standard locations
     let config = NpmrcConfig::load()?;
 
@@ -64,7 +64,7 @@ fn main() -> npmrc_config::Result<()> {
 ### Loading Configuration
 
 ```rust
-use npmrc_config::{NpmrcConfig, LoadOptions};
+use npmrc_config_rs::{NpmrcConfig, LoadOptions};
 use std::path::Path;
 
 // Load from standard locations
@@ -108,7 +108,7 @@ for (scope, url) in scoped {
 ### Working with Credentials
 
 ```rust
-use npmrc_config::Credentials;
+use npmrc_config_rs::Credentials;
 
 let registry = config.registry_for("@myorg/package");
 
@@ -145,7 +145,7 @@ if let Some(creds) = config.credentials_for(&registry) {
 ## Error Handling
 
 ```rust
-use npmrc_config::{NpmrcConfig, Error};
+use npmrc_config_rs::{NpmrcConfig, Error};
 
 match NpmrcConfig::load_from_file(Path::new("/path/to/.npmrc")) {
     Ok(config) => {
