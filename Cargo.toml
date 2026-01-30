@@ -2,7 +2,7 @@
 name = "npmrc-config-rs"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.83.0"
 description = "Rust port of @npmcli/config v10.5.0 for reading and parsing npm .npmrc configuration files"
 license = "MIT"
 repository = "https://github.com/evaliyev/npmrc-config-rs"
