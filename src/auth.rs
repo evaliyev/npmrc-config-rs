@@ -5,11 +5,15 @@
 
 use crate::error::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use std::fmt;
 use std::path::PathBuf;
 use url::Url;
 
 /// Credentials for authenticating with an npm registry.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Note: The `Debug` implementation redacts sensitive fields (tokens, passwords)
+/// to prevent accidental credential leakage in logs or error messages.
+#[derive(Clone, PartialEq)]
 pub enum Credentials {
     /// Bearer token authentication (`_authToken`).
     /// This is the recommended authentication method.
@@ -42,6 +46,38 @@ pub enum Credentials {
 
     /// Client certificate only (mTLS without token/password auth).
     ClientCertOnly(ClientCert),
+}
+
+impl fmt::Debug for Credentials {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Credentials::Token { cert, .. } => f
+                .debug_struct("Token")
+                .field("token", &"[REDACTED]")
+                .field("cert", cert)
+                .finish(),
+            Credentials::BasicAuth {
+                username, cert, ..
+            } => f
+                .debug_struct("BasicAuth")
+                .field("username", username)
+                .field("password", &"[REDACTED]")
+                .field("cert", cert)
+                .finish(),
+            Credentials::LegacyAuth {
+                username, cert, ..
+            } => f
+                .debug_struct("LegacyAuth")
+                .field("auth", &"[REDACTED]")
+                .field("username", username)
+                .field("password", &"[REDACTED]")
+                .field("cert", cert)
+                .finish(),
+            Credentials::ClientCertOnly(cert) => {
+                f.debug_tuple("ClientCertOnly").field(cert).finish()
+            }
+        }
+    }
 }
 
 /// Client certificate for mTLS authentication.
@@ -237,5 +273,67 @@ mod tests {
         };
         assert_eq!(creds.token(), Some("my-token"));
         assert_eq!(creds.username_password(), None);
+    }
+
+    #[test]
+    fn test_debug_redacts_token() {
+        let creds = Credentials::Token {
+            token: "super-secret-token".to_string(),
+            cert: None,
+        };
+        let debug_output = format!("{:?}", creds);
+        assert!(
+            !debug_output.contains("super-secret-token"),
+            "Debug output should not contain the actual token"
+        );
+        assert!(
+            debug_output.contains("[REDACTED]"),
+            "Debug output should show [REDACTED]"
+        );
+    }
+
+    #[test]
+    fn test_debug_redacts_basic_auth_password() {
+        let creds = Credentials::BasicAuth {
+            username: "myuser".to_string(),
+            password: "super-secret-password".to_string(),
+            cert: None,
+        };
+        let debug_output = format!("{:?}", creds);
+        assert!(
+            !debug_output.contains("super-secret-password"),
+            "Debug output should not contain the actual password"
+        );
+        assert!(
+            debug_output.contains("myuser"),
+            "Debug output should still show username"
+        );
+        assert!(
+            debug_output.contains("[REDACTED]"),
+            "Debug output should show [REDACTED]"
+        );
+    }
+
+    #[test]
+    fn test_debug_redacts_legacy_auth() {
+        let creds = Credentials::LegacyAuth {
+            auth: "c2VjcmV0LWF1dGgtc3RyaW5n".to_string(),
+            username: "legacyuser".to_string(),
+            password: "legacy-secret-password".to_string(),
+            cert: None,
+        };
+        let debug_output = format!("{:?}", creds);
+        assert!(
+            !debug_output.contains("c2VjcmV0LWF1dGgtc3RyaW5n"),
+            "Debug output should not contain the auth string"
+        );
+        assert!(
+            !debug_output.contains("legacy-secret-password"),
+            "Debug output should not contain the password"
+        );
+        assert!(
+            debug_output.contains("legacyuser"),
+            "Debug output should still show username"
+        );
     }
 }
