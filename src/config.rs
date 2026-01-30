@@ -27,7 +27,7 @@ pub struct ConfigData {
 impl ConfigData {
     /// Load configuration from a file path.
     ///
-    /// Returns `Ok(None)` if the file doesn't exist.
+    /// Returns `Ok(None)` if the f doesn't exist.
     /// Returns `Err` if the file exists but can't be read or parsed.
     pub fn load(path: &Path) -> Result<Option<Self>> {
         if !path.exists() {
@@ -116,6 +116,51 @@ impl NpmrcConfig {
     /// Load configuration from standard locations with auto-detected paths.
     pub fn load() -> Result<Self> {
         Self::load_with_options(LoadOptions::default())
+    }
+
+    /// Load configuration from a single file path.
+    ///
+    /// This loads only the specified file, bypassing the standard multi-layer
+    /// config discovery (project, user, global).
+    ///
+    /// Returns `Err(Error::FileNotFound)` if the file doesn't exist.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use npmrc_config_rs::NpmrcConfig;
+    /// use std::path::Path;
+    ///
+    /// let config = NpmrcConfig::load_from_file(Path::new("/path/to/custom.npmrc"))?;
+    /// # Ok::<(), npmrc_config_rs::Error>(())
+    /// ```
+    pub fn load_from_file(path: &Path) -> Result<Self> {
+        if !path.exists() {
+            return Err(Error::FileNotFound(path.to_path_buf()));
+        }
+
+        let content = std::fs::read_to_string(path).map_err(|e| Error::ReadFile {
+            path: path.to_path_buf(),
+            source: e,
+        })?;
+
+        let data = parse_npmrc(&content, path)?;
+
+        let config = ConfigData {
+            source: path.to_path_buf(),
+            data,
+        };
+
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+        Ok(NpmrcConfig {
+            global_prefix: find_global_prefix(),
+            local_prefix: find_local_prefix(&cwd),
+            home: dirs::home_dir(),
+            global_config: None,
+            user_config: None,
+            project_config: Some(config),
+        })
     }
 
     /// Load configuration with custom options.
@@ -637,5 +682,69 @@ mod tests {
             scoped.get("@bar").map(|u| u.as_str()),
             Some("https://bar.example.com/")
         );
+    }
+
+    #[test]
+    fn test_load_from_file() {
+        let temp = setup_test_dir();
+        let npmrc_path = temp.path().join("custom.npmrc");
+
+        fs::write(
+            &npmrc_path,
+            "registry = https://custom.registry.com/\n\
+             @myorg:registry = https://myorg.registry.com/\n",
+        )
+        .unwrap();
+
+        let config = NpmrcConfig::load_from_file(&npmrc_path).unwrap();
+
+        assert_eq!(config.get("registry"), Some("https://custom.registry.com/"));
+        assert_eq!(
+            config.get("@myorg:registry"),
+            Some("https://myorg.registry.com/")
+        );
+        assert!(config.has_project_config());
+        assert!(!config.has_user_config());
+        assert!(!config.has_global_config());
+    }
+
+    #[test]
+    fn test_load_from_file_not_found() {
+        let temp = setup_test_dir();
+        let npmrc_path = temp.path().join("nonexistent.npmrc");
+
+        let result = NpmrcConfig::load_from_file(&npmrc_path);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::FileNotFound(path) => {
+                assert_eq!(path, npmrc_path);
+            }
+            other => panic!("Expected FileNotFound error, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_load_from_file_with_credentials() {
+        let temp = setup_test_dir();
+        let npmrc_path = temp.path().join("auth.npmrc");
+
+        fs::write(
+            &npmrc_path,
+            "//registry.example.com/:_authToken = secret-token\n",
+        )
+        .unwrap();
+
+        let config = NpmrcConfig::load_from_file(&npmrc_path).unwrap();
+
+        let registry = Url::parse("https://registry.example.com/").unwrap();
+        let creds = config.credentials_for(&registry).unwrap();
+
+        match creds {
+            Credentials::Token { token, .. } => {
+                assert_eq!(token, "secret-token");
+            }
+            _ => panic!("Expected Token credentials"),
+        }
     }
 }

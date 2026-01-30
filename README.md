@@ -65,9 +65,13 @@ fn main() -> npmrc_config::Result<()> {
 
 ```rust
 use npmrc_config::{NpmrcConfig, LoadOptions};
+use std::path::Path;
 
 // Load from standard locations
 let config = NpmrcConfig::load()?;
+
+// Load from a single file (bypasses multi-layer discovery)
+let config = NpmrcConfig::load_from_file(Path::new("/path/to/custom.npmrc"))?;
 
 // Load with custom options
 let config = NpmrcConfig::load_with_options(LoadOptions {
@@ -143,9 +147,12 @@ if let Some(creds) = config.credentials_for(&registry) {
 ```rust
 use npmrc_config::{NpmrcConfig, Error};
 
-match NpmrcConfig::load() {
+match NpmrcConfig::load_from_file(Path::new("/path/to/.npmrc")) {
     Ok(config) => {
         // Use config
+    }
+    Err(Error::FileNotFound(path)) => {
+        eprintln!("Config file not found: {}", path.display());
     }
     Err(Error::ReadFile { path, source }) => {
         eprintln!("Failed to read {}: {}", path.display(), source);
