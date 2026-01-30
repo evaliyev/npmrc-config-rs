@@ -11,9 +11,13 @@ use url::Url;
 
 /// Credentials for authenticating with an npm registry.
 ///
-/// Note: The `Debug` implementation redacts sensitive fields (tokens, passwords)
-/// to prevent accidental credential leakage in logs or error messages.
-#[derive(Clone, PartialEq)]
+/// # Security Notes
+///
+/// - The `Debug` implementation redacts sensitive fields (tokens, passwords)
+///   to prevent accidental credential leakage in logs or error messages.
+/// - `PartialEq` is intentionally not implemented to prevent timing attacks
+///   when comparing credentials.
+#[derive(Clone)]
 pub enum Credentials {
     /// Bearer token authentication (`_authToken`).
     /// This is the recommended authentication method.
