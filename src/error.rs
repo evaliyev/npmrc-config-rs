@@ -6,6 +6,10 @@ use thiserror::Error;
 /// Errors that can occur when working with npmrc configuration.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Config file not found.
+    #[error("config file not found: {0}")]
+    FileNotFound(PathBuf),
+
     /// Failed to read a config file.
     #[error("failed to read config file {path}: {source}")]
     ReadFile {
