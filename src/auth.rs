@@ -60,17 +60,13 @@ impl fmt::Debug for Credentials {
                 .field("token", &"[REDACTED]")
                 .field("cert", cert)
                 .finish(),
-            Credentials::BasicAuth {
-                username, cert, ..
-            } => f
+            Credentials::BasicAuth { username, cert, .. } => f
                 .debug_struct("BasicAuth")
                 .field("username", username)
                 .field("password", &"[REDACTED]")
                 .field("cert", cert)
                 .finish(),
-            Credentials::LegacyAuth {
-                username, cert, ..
-            } => f
+            Credentials::LegacyAuth { username, cert, .. } => f
                 .debug_struct("LegacyAuth")
                 .field("auth", &"[REDACTED]")
                 .field("username", username)
