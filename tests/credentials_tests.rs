@@ -175,6 +175,21 @@ fn test_basic_auth_missing_username() {
     assert!(config.credentials_for(&registry).is_none());
 }
 
+#[test]
+fn test_top_level_auth_is_not_used_for_registry_credentials() {
+    let registry = Url::parse("https://registry.example.com/").unwrap();
+
+    for npmrc in [
+        "_auth = dXNlcjpwYXNz",
+        "_authToken = token",
+        "username = user\n_password = cGFzcw==",
+        "certfile = /path/to/cert\nkeyfile = /path/to/key",
+    ] {
+        let (_temp, config) = setup_config(npmrc);
+        assert!(config.credentials_for(&registry).is_none());
+    }
+}
+
 // =============================================================================
 // Legacy _auth authentication
 // =============================================================================

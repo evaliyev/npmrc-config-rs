@@ -1,6 +1,6 @@
 # Compatibility with @npmcli/config
 
-This document compares the Rust port (`npmrc-config-rs`) with the original [@npmcli/config](https://github.com/npm/cli/tree/latest/workspaces/config) package.
+This document compares the Rust port (`npmrc-config-rs`) with [@npmcli/config v11.0.1](https://github.com/npm/cli/tree/config-v11.0.1/workspaces/config).
 
 ## Summary
 
@@ -23,6 +23,10 @@ This document compares the Rust port (`npmrc-config-rs`) with the original [@npm
 | `get(key)` | Yes | Yes |
 | `find(key)` | Yes | No |
 | `isDefault(key)` | Yes | No |
+| **Parsing** | | |
+| Basic quoted scalar values | Yes | Yes |
+| Inline comments | Yes | Yes |
+| Arrays and sections | Yes | No |
 | **Writing** | | |
 | `set()` | Yes | No |
 | `delete()` | Yes | No |
@@ -42,6 +46,7 @@ This document compares the Rust port (`npmrc-config-rs`) with the original [@npm
 - Scoped registry resolution (`@scope:registry`)
 - Full authentication support (tokens, basic auth, legacy auth, mTLS)
 - Environment variable expansion in values (`${VAR}`)
+- Quoted scalar values and inline comments
 - Path expansion (`~`)
 
 ## What's Not Included
@@ -51,6 +56,11 @@ This document compares the Rust port (`npmrc-config-rs`) with the original [@npm
 3. **Builtin config level** - Not implemented
 4. **Write operations** - This is a read-only library
 5. **Validation/repair** - No schema validation or config repair
+6. **Arrays and sections** - The public API exposes string values only
+
+Upstream warns about unknown `.npmrc` keys by default and can reject them with
+`strict-npmrc`. This crate accepts unknown keys because validation is outside
+its read-only scope.
 
 ## Use Cases
 

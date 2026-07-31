@@ -68,6 +68,15 @@ fn test_find_local_prefix_fallback_to_cwd() {
 }
 
 #[test]
+fn test_find_local_prefix_fallback_for_nonexistent_cwd() {
+    let temp = TempDir::new().unwrap();
+    let missing_dir = temp.path().join("does").join("not").join("exist");
+
+    let result = find_local_prefix(&missing_dir);
+    assert_eq!(result, missing_dir);
+}
+
+#[test]
 fn test_find_local_prefix_at_root() {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("package.json"), "{}").unwrap();
