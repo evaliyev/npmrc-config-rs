@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  JUST_VERSION: 1.57.0
 
 jobs:
   test:
@@ -20,14 +21,14 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         rust: [stable, beta]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v1
+      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: extractions/setup-just@v4
         with:
-          just-version: 1.35.0
+          just-version: ${{ env.JUST_VERSION }}
       - run: just test
 
   lint:
@@ -36,14 +37,14 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v1
+      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: extractions/setup-just@v4
         with:
-          just-version: 1.35.0
+          just-version: ${{ env.JUST_VERSION }}
       - run: just check-cargo
       - run: just check-clippy
 
@@ -53,13 +54,13 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - uses: extractions/setup-just@v1
+      - uses: extractions/setup-just@v4
         with:
-          just-version: 1.35.0
+          just-version: ${{ env.JUST_VERSION }}
       - run: just check-formatting
 
   docs:
@@ -68,12 +69,12 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v1
+      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: extractions/setup-just@v4
         with:
-          just-version: 1.35.0
+          just-version: ${{ env.JUST_VERSION }}
       - run: just docs
 
   msrv:
@@ -82,12 +83,12 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: 1.83.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.83.0"
-      - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v1
+      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: extractions/setup-just@v4
         with:
-          just-version: 1.35.0
+          just-version: ${{ env.JUST_VERSION }}
       - run: just msrv
