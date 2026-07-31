@@ -31,6 +31,7 @@ static ENV_EXPR: LazyLock<Regex> =
 /// - Don't use sections (no `[section]` headers)
 /// - Allow keys starting with special characters like `@` and `//`
 pub fn parse_npmrc(content: &str, _path: &Path) -> Result<HashMap<String, String>> {
+    // ponytail: Keep this scalar-only until the public API can represent arrays and sections.
     let mut result = HashMap::new();
 
     for line in content.lines() {
@@ -56,13 +57,50 @@ pub fn parse_npmrc(content: &str, _path: &Path) -> Result<HashMap<String, String
                 continue;
             }
 
-            let expanded = expand_env_vars(value);
+            let expanded = expand_env_vars(&parse_value(value));
             result.insert(key.to_string(), expanded);
         }
         // Lines without = are ignored (npm's ini parser also ignores them)
     }
 
     Ok(result)
+}
+
+/// Parse an npm INI scalar, removing quotes and unescaped inline comments.
+fn parse_value(value: &str) -> String {
+    if value.len() >= 2
+        && ((value.starts_with('"') && value.ends_with('"'))
+            || (value.starts_with('\'') && value.ends_with('\'')))
+    {
+        return value[1..value.len() - 1].to_string();
+    }
+
+    let mut parsed = String::with_capacity(value.len());
+    let mut escaped = false;
+
+    for character in value.chars() {
+        if escaped {
+            if matches!(character, '\\' | ';' | '#') {
+                parsed.push(character);
+            } else {
+                parsed.push('\\');
+                parsed.push(character);
+            }
+            escaped = false;
+        } else if character == '\\' {
+            escaped = true;
+        } else if matches!(character, ';' | '#') {
+            break;
+        } else {
+            parsed.push(character);
+        }
+    }
+
+    if escaped {
+        parsed.push('\\');
+    }
+
+    parsed.trim().to_string()
 }
 
 /// Expand `${VAR}` environment variable references in a value.
@@ -181,6 +219,31 @@ registry = https://registry.npmjs.org/
         assert_eq!(
             result.get("registry"),
             Some(&"https://registry.npmjs.org/".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_quoted_values_and_inline_comments() {
+        let content = r#"
+quoted = "value ; with # markers"
+single-quoted = 'another value'
+commented = value ; comment
+escaped = value\;still-value\#still-value
+"#;
+        let result = parse_npmrc(content, Path::new("test")).unwrap();
+
+        assert_eq!(
+            result.get("quoted"),
+            Some(&"value ; with # markers".to_string())
+        );
+        assert_eq!(
+            result.get("single-quoted"),
+            Some(&"another value".to_string())
+        );
+        assert_eq!(result.get("commented"), Some(&"value".to_string()));
+        assert_eq!(
+            result.get("escaped"),
+            Some(&"value;still-value#still-value".to_string())
         );
     }
 

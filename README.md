@@ -4,7 +4,7 @@ A Rust library for reading and parsing npm `.npmrc` configuration files.
 
 This crate provides functionality to load npm configuration from `.npmrc` files at various levels (global, user, project), resolve registries for scoped packages, and retrieve authentication credentials for private registries.
 
-> **Note:** This is a Rust port of [@npmcli/config v10.5.0](https://github.com/npm/cli/tree/latest/workspaces/config). See [COMPATIBILITY.md](docs/COMPATIBILITY.md) for details on what's supported.
+> **Note:** This is a Rust port of [@npmcli/config v11.0.1](https://github.com/npm/cli/tree/config-v11.0.1/workspaces/config). See [COMPATIBILITY.md](docs/COMPATIBILITY.md) for details on what's supported.
 
 ## Features
 
