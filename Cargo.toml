@@ -12,7 +12,7 @@ keywords = ["npm", "npmrc", "config", "registry", "authentication"]
 categories = ["config", "development-tools"]
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 dirs = "6"
 regex = "1"
 thiserror = "2"
