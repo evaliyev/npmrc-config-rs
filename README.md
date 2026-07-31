@@ -26,7 +26,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-npmrc-config-rs = "0.1.1"
+npmrc-config-rs = "0.2.0"
 ```
 
 ## Quick Start
