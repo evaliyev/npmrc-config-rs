@@ -47,20 +47,15 @@ pub fn parse_npmrc(content: &str, _path: &Path) -> Result<HashMap<String, String
             continue;
         }
 
-        // Parse key=value or key = value
-        if let Some(eq_pos) = line.find('=') {
-            let key = line[..eq_pos].trim();
-            let value = line[eq_pos + 1..].trim();
+        let (key, value) = match line.split_once('=') {
+            Some((key, value)) => (parse_value(key), parse_value(value)),
+            None if line.starts_with('[') => continue,
+            None => (parse_value(line), "true".to_string()),
+        };
 
-            // Skip empty keys
-            if key.is_empty() {
-                continue;
-            }
-
-            let expanded = expand_env_vars(&parse_value(value));
-            result.insert(key.to_string(), expanded);
+        if !key.is_empty() {
+            result.insert(key, expand_env_vars(&value));
         }
-        // Lines without = are ignored (npm's ini parser also ignores them)
     }
 
     Ok(result)
@@ -68,6 +63,8 @@ pub fn parse_npmrc(content: &str, _path: &Path) -> Result<HashMap<String, String
 
 /// Parse an npm INI scalar, removing quotes and unescaped inline comments.
 fn parse_value(value: &str) -> String {
+    let value = value.trim();
+
     if value.len() >= 2
         && ((value.starts_with('"') && value.ends_with('"'))
             || (value.starts_with('\'') && value.ends_with('\'')))
@@ -229,6 +226,11 @@ quoted = "value ; with # markers"
 single-quoted = 'another value'
 commented = value ; comment
 escaped = value\;still-value\#still-value
+blank =
+quoted-spaces = ' a '
+mismatched-quote = "something'
+flag
+"quoted-key" = quoted-key-value
 "#;
         let result = parse_npmrc(content, Path::new("test")).unwrap();
 
@@ -244,6 +246,17 @@ escaped = value\;still-value\#still-value
         assert_eq!(
             result.get("escaped"),
             Some(&"value;still-value#still-value".to_string())
+        );
+        assert_eq!(result.get("blank"), Some(&String::new()));
+        assert_eq!(result.get("quoted-spaces"), Some(&" a ".to_string()));
+        assert_eq!(
+            result.get("mismatched-quote"),
+            Some(&"\"something'".to_string())
+        );
+        assert_eq!(result.get("flag"), Some(&"true".to_string()));
+        assert_eq!(
+            result.get("quoted-key"),
+            Some(&"quoted-key-value".to_string())
         );
     }
 

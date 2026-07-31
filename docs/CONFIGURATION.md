@@ -2,6 +2,8 @@
 
 The `.npmrc` file uses a simple INI-like format.
 
+Bare keys without `=` are read as `true`, matching npm's INI parser.
+
 ## Basic Format
 
 ```ini
