@@ -13,6 +13,8 @@ Keep focused unit tests beside their modules. Put cross-module and filesystem be
 
 ## Build, Test, and Development Commands
 
+- `just check` — run the complete local pre-PR validation suite.
+- `just` — list focused formatting, linting, testing, coverage, and watch commands.
 - `cargo build` — compile the library with the default feature set.
 - `cargo test --all-features` — run unit, integration, and documentation tests as CI does.
 - `cargo fmt --all -- --check` — verify rustfmt output.

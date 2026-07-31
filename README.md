@@ -173,3 +173,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+Install the task runner and optional development tools:
+
+```sh
+cargo install just
+just install-system-dependencies
+```
+
+Run `just check` before opening a pull request. Run `just` to list focused
+formatting, linting, testing, coverage, dependency, and watch commands.
