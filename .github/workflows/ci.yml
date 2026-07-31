@@ -13,6 +13,8 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -23,47 +25,69 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-features
+      - uses: extractions/setup-just@v1
+        with:
+          just-version: 1.35.0
+      - run: just test
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - uses: extractions/setup-just@v1
+        with:
+          just-version: 1.35.0
+      - run: just check-cargo
+      - run: just check-clippy
 
   format:
     name: Format
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: cargo fmt --all -- --check
+      - uses: extractions/setup-just@v1
+        with:
+          just-version: 1.35.0
+      - run: just check-formatting
 
   docs:
     name: Docs
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: -D warnings
+      - uses: extractions/setup-just@v1
+        with:
+          just-version: 1.35.0
+      - run: just docs
 
   msrv:
     name: MSRV (1.83.0)
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: 1.83.0
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.83.0"
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --all-features
+      - uses: extractions/setup-just@v1
+        with:
+          just-version: 1.35.0
+      - run: just msrv
