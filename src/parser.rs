@@ -7,17 +7,10 @@
 //! .npmrc files have special key formats (like `//registry.npmjs.org/:_authToken`)
 //! that standard INI parsers may treat incorrectly as sections or comments.
 
+use crate::env_replace::expand_env_vars;
 use crate::error::Result;
-use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::LazyLock;
-
-/// Regex for matching environment variable references: `${VAR}` or `${VAR?}`
-/// The `?` modifier makes undefined variables expand to empty string instead of keeping the literal.
-/// Supports escaping with backslashes.
-static ENV_EXPR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?P<esc>\\*)\$\{(?P<name>[^${}?]+)(?P<mod>\?)?\}").unwrap());
 
 /// Parse .npmrc INI content into key-value pairs.
 ///
@@ -98,47 +91,6 @@ fn parse_value(value: &str) -> String {
     }
 
     parsed.trim().to_string()
-}
-
-/// Expand `${VAR}` environment variable references in a value.
-///
-/// - `${VAR}` - Expands to the value of VAR, or keeps `${VAR}` literal if undefined
-/// - `${VAR?}` - Expands to the value of VAR, or empty string if undefined
-/// - `\\${VAR}` - Escaped, keeps the literal (with one less backslash)
-pub fn expand_env_vars(value: &str) -> String {
-    ENV_EXPR
-        .replace_all(value, |caps: &regex::Captures| {
-            let esc = caps.name("esc").map_or("", |m| m.as_str());
-            let name = caps.name("name").map_or("", |m| m.as_str());
-            let modifier = caps.name("mod").map_or("", |m| m.as_str());
-
-            // Handle escape sequences
-            let esc_len = esc.len();
-            if esc_len % 2 == 1 {
-                // Odd number of backslashes means the $ is escaped
-                // Return half the backslashes (rounded down) plus the literal variable syntax
-                let kept_esc = &esc[..(esc_len / 2)];
-                // Preserve the original literal including modifier
-                let literal = format!("${{{}{}}}", name, modifier);
-                return format!("{}{}", kept_esc, literal);
-            }
-
-            // Even number of backslashes (including 0) - expand the variable
-            let kept_esc = &esc[..(esc_len / 2)];
-            let val = match std::env::var(name) {
-                Ok(v) => v,
-                Err(_) => {
-                    if modifier == "?" {
-                        String::new()
-                    } else {
-                        format!("${{{}}}", name)
-                    }
-                }
-            };
-
-            format!("{}{}", kept_esc, val)
-        })
-        .into_owned()
 }
 
 /// Parse a boolean value from a string.
@@ -275,43 +227,6 @@ flag
         let content = "key = value=with=equals";
         let result = parse_npmrc(content, Path::new("test")).unwrap();
         assert_eq!(result.get("key"), Some(&"value=with=equals".to_string()));
-    }
-
-    #[test]
-    fn test_expand_env_vars() {
-        std::env::set_var("TEST_VAR", "test_value");
-
-        assert_eq!(expand_env_vars("${TEST_VAR}"), "test_value");
-        assert_eq!(
-            expand_env_vars("prefix_${TEST_VAR}_suffix"),
-            "prefix_test_value_suffix"
-        );
-
-        std::env::remove_var("TEST_VAR");
-    }
-
-    #[test]
-    fn test_expand_env_vars_undefined() {
-        std::env::remove_var("UNDEFINED_VAR");
-
-        // Without modifier - keeps literal
-        assert_eq!(expand_env_vars("${UNDEFINED_VAR}"), "${UNDEFINED_VAR}");
-
-        // With ? modifier - expands to empty
-        assert_eq!(expand_env_vars("${UNDEFINED_VAR?}"), "");
-    }
-
-    #[test]
-    fn test_expand_env_vars_escaped() {
-        std::env::set_var("TEST_VAR2", "value");
-
-        // Single backslash escapes
-        assert_eq!(expand_env_vars("\\${TEST_VAR2}"), "${TEST_VAR2}");
-
-        // Double backslash - one backslash kept, var expanded
-        assert_eq!(expand_env_vars("\\\\${TEST_VAR2}"), "\\value");
-
-        std::env::remove_var("TEST_VAR2");
     }
 
     #[test]

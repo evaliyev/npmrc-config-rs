@@ -51,31 +51,3 @@ pub fn parse_registry_url(url: &str) -> Result<Url, url::ParseError> {
     };
     Url::parse(&normalized)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_extract_scope() {
-        assert_eq!(extract_scope("@myorg/package"), Some("@myorg"));
-        assert_eq!(extract_scope("@another/pkg"), Some("@another"));
-        assert_eq!(extract_scope("regular-package"), None);
-        assert_eq!(extract_scope("@scope"), Some("@scope"));
-    }
-
-    #[test]
-    fn test_scope_registry_key() {
-        assert_eq!(scope_registry_key("@myorg"), "@myorg:registry");
-        assert_eq!(scope_registry_key("@acme"), "@acme:registry");
-    }
-
-    #[test]
-    fn test_parse_registry_url() {
-        let url = parse_registry_url("https://registry.npmjs.org").unwrap();
-        assert_eq!(url.as_str(), "https://registry.npmjs.org/");
-
-        let url = parse_registry_url("https://registry.npmjs.org/").unwrap();
-        assert_eq!(url.as_str(), "https://registry.npmjs.org/");
-    }
-}

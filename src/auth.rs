@@ -7,7 +7,6 @@ use crate::error::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::fmt;
 use std::path::PathBuf;
-use url::Url;
 
 /// Credentials for authenticating with an npm registry.
 ///
@@ -89,49 +88,6 @@ pub struct ClientCert {
     pub keyfile: PathBuf,
 }
 
-/// Convert a registry URL to nerf-dart format for credential lookup.
-///
-/// Nerf-darting strips the protocol and normalizes the path to prevent
-/// credentials from leaking across registries.
-///
-/// # Examples
-///
-/// ```
-/// use url::Url;
-/// use npmrc_config_rs::nerf_dart;
-///
-/// let url = Url::parse("https://registry.npmjs.org/").unwrap();
-/// assert_eq!(nerf_dart(&url), "//registry.npmjs.org/");
-///
-/// let url = Url::parse("https://example.com/some/path/").unwrap();
-/// assert_eq!(nerf_dart(&url), "//example.com/some/path/");
-/// ```
-pub fn nerf_dart(url: &Url) -> String {
-    // Get host and path, normalizing the path to end with /
-    let host = url.host_str().unwrap_or("");
-    let port = url.port().map(|p| format!(":{}", p)).unwrap_or_default();
-
-    // Normalize path: get parent directory and ensure trailing slash
-    // This mimics `new URL('.', from)` in JavaScript which resolves to the directory
-    let path = url.path();
-    let normalized_path = if path.ends_with('/') {
-        path.to_string()
-    } else {
-        // Get the "directory" part of the path (like `new URL('.', from)` in JS)
-        // For "/some/path", we want "/some/"
-        // For "/", we want "/"
-        match path.rfind('/') {
-            Some(idx) => {
-                // Include everything up to and including the last /
-                path[..=idx].to_string()
-            }
-            None => "/".to_string(),
-        }
-    };
-
-    format!("//{}{}{}", host, port, normalized_path)
-}
-
 /// Decode a base64-encoded password.
 pub fn decode_password(encoded: &str) -> Result<String> {
     let decoded = BASE64.decode(encoded)?;
@@ -197,35 +153,6 @@ impl Credentials {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_nerf_dart_simple() {
-        let url = Url::parse("https://registry.npmjs.org/").unwrap();
-        assert_eq!(nerf_dart(&url), "//registry.npmjs.org/");
-    }
-
-    #[test]
-    fn test_nerf_dart_with_path() {
-        let url = Url::parse("https://example.com/some/path/").unwrap();
-        assert_eq!(nerf_dart(&url), "//example.com/some/path/");
-    }
-
-    #[test]
-    fn test_nerf_dart_normalizes_path() {
-        // Without trailing slash
-        let url = Url::parse("https://example.com/some/path").unwrap();
-        assert_eq!(nerf_dart(&url), "//example.com/some/");
-
-        // Package path gets normalized to registry root
-        let url = Url::parse("https://registry.npmjs.org/package-name").unwrap();
-        assert_eq!(nerf_dart(&url), "//registry.npmjs.org/");
-    }
-
-    #[test]
-    fn test_nerf_dart_with_port() {
-        let url = Url::parse("https://registry.example.com:8080/npm/").unwrap();
-        assert_eq!(nerf_dart(&url), "//registry.example.com:8080/npm/");
-    }
 
     #[test]
     fn test_decode_password() {

@@ -13,6 +13,7 @@ This crate provides functionality to load npm configuration from `.npmrc` files 
 - **Full authentication support** - Bearer tokens, basic auth, legacy auth, and mTLS client certificates
 - **Environment variable expansion** - Support for `${VAR}` and `${VAR?}` syntax in config values
 - **Path expansion** - Automatic `~` expansion to home directory
+- **npm prefix discovery** - Global prefix from `PREFIX`, the node executable, and `DESTDIR`; local prefix by walking up to `package.json` or `node_modules`
 
 ## Documentation
 
@@ -26,7 +27,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-npmrc-config-rs = "0.2.0"
+npmrc-config-rs = "0.2.1"
 ```
 
 ## Quick Start
@@ -139,6 +140,11 @@ if let Some(creds) = config.credentials_for(&registry) {
     if let Some(header) = creds.basic_auth_header() {
         // Ready to use in Authorization header
     }
+}
+
+// Email is configured per registry (`//registry/:email`) and looked up separately
+if let Some(email) = config.email_for(&registry) {
+    println!("Email: {}", email);
 }
 ```
 

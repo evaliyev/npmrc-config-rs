@@ -252,3 +252,15 @@ fn test_deeply_nested_path() {
 fn test_root_path_only() {
     assert_nerf_dart("https://example.com", "//example.com/");
 }
+
+// =============================================================================
+// Invalid input
+// =============================================================================
+
+#[test]
+fn test_invalid_url_is_rejected_before_nerf_darting() {
+    // Upstream: `t.throws(() => nerfDart('not a valid url'))`. Here the type
+    // system pushes that failure to URL parsing, so assert it happens there.
+    assert!(Url::parse("not a valid url").is_err());
+    assert!(Url::parse("registry.npmjs.org").is_err());
+}

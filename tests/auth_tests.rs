@@ -1,9 +1,11 @@
-//! Credentials tests covering various authentication scenarios.
+//! Credential tests for `src/auth.rs`.
 //!
-//! Tests the credential lookup functionality with different auth configurations.
+//! Mirrors the `credentials management` subtests of `test/index.js` in
+//! @npmcli/config, which cover nerf-darted auth lookup and its fixtures.
 
 use npmrc_config_rs::{Credentials, LoadOptions, NpmrcConfig};
 use std::fs;
+use std::path::PathBuf;
 use tempfile::TempDir;
 use url::Url;
 
@@ -488,4 +490,334 @@ fn test_legacy_auth_helper() {
     assert!(creds.token().is_none());
     assert_eq!(creds.username_password(), Some(("user", "pass")));
     assert_eq!(creds.basic_auth_header(), Some("dXNlcjpwYXNz".to_string()));
+}
+
+// =============================================================================
+// Upstream fixture matrix
+//
+// 1:1 port of the `credentials management` fixtures in
+// @npmcli/config test/index.js. Fixture names are kept verbatim. Each case
+// asserts the credentials for the default registry and that nothing leaks to
+// another registry, matching the upstream "default registry" / "other
+// registry" snapshots.
+// =============================================================================
+
+/// Base64 of `world`, as upstream writes it into `_password`.
+const B64_WORLD: &str = "d29ybGQ=";
+/// Base64 of `hello:world`, as upstream writes it into `_auth`.
+const B64_HELLO_WORLD: &str = "aGVsbG86d29ybGQ=";
+
+fn default_registry() -> Url {
+    Url::parse("https://registry.example/").unwrap()
+}
+
+fn other_registry() -> Url {
+    Url::parse("https://other.registry/").unwrap()
+}
+
+/// Assert a fixture yields no credentials for either registry.
+fn assert_no_credentials(fixture: &str, npmrc: &str) {
+    let (_temp, config) = setup_config(npmrc);
+    assert!(
+        config.credentials_for(&default_registry()).is_none(),
+        "{fixture}: default registry should have no credentials"
+    );
+    assert!(
+        config.credentials_for(&other_registry()).is_none(),
+        "{fixture}: other registry should have no credentials"
+    );
+}
+
+#[test]
+fn test_fixture_nerfed_auth_token() {
+    let (_temp, config) = setup_config("//registry.example/:_authToken = 0bad1de4");
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::Token { token, cert } => {
+            assert_eq!(token, "0bad1de4");
+            assert!(cert.is_none());
+        }
+        other => panic!("expected token, got {:?}", other),
+    }
+    assert!(config.credentials_for(&other_registry()).is_none());
+}
+
+#[test]
+fn test_fixture_nerfed_userpass() {
+    let (_temp, config) = setup_config(&format!(
+        "//registry.example/:username = hello\n\
+         //registry.example/:_password = {B64_WORLD}\n\
+         //registry.example/:email = i@izs.me"
+    ));
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::BasicAuth {
+            username,
+            password,
+            cert,
+        } => {
+            assert_eq!(username, "hello");
+            assert_eq!(password, "world");
+            assert!(cert.is_none());
+        }
+        other => panic!("expected basic auth, got {:?}", other),
+    }
+    assert_eq!(config.email_for(&default_registry()), Some("i@izs.me"));
+    assert!(config.credentials_for(&other_registry()).is_none());
+    assert_eq!(config.email_for(&other_registry()), None);
+}
+
+#[test]
+fn test_fixture_nerfed_auth() {
+    let (_temp, config) = setup_config(&format!("//registry.example/:_auth = {B64_HELLO_WORLD}"));
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::LegacyAuth {
+            auth,
+            username,
+            password,
+            cert,
+        } => {
+            assert_eq!(auth, B64_HELLO_WORLD);
+            assert_eq!(username, "hello");
+            assert_eq!(password, "world");
+            assert!(cert.is_none());
+        }
+        other => panic!("expected legacy auth, got {:?}", other),
+    }
+    assert!(config.credentials_for(&other_registry()).is_none());
+}
+
+#[test]
+fn test_fixture_nerfed_mtls() {
+    let (_temp, config) = setup_config(
+        "//registry.example/:certfile = /path/to/cert\n\
+         //registry.example/:keyfile = /path/to/key",
+    );
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::ClientCertOnly(cert) => {
+            assert_eq!(cert.certfile, PathBuf::from("/path/to/cert"));
+            assert_eq!(cert.keyfile, PathBuf::from("/path/to/key"));
+        }
+        other => panic!("expected client cert only, got {:?}", other),
+    }
+    assert!(config.credentials_for(&other_registry()).is_none());
+}
+
+#[test]
+fn test_fixture_nerfed_mtls_auth_token() {
+    let (_temp, config) = setup_config(
+        "//registry.example/:_authToken = 0bad1de4\n\
+         //registry.example/:certfile = /path/to/cert\n\
+         //registry.example/:keyfile = /path/to/key",
+    );
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::Token { token, cert } => {
+            assert_eq!(token, "0bad1de4");
+            let cert = cert.expect("cert should be present");
+            assert_eq!(cert.certfile, PathBuf::from("/path/to/cert"));
+            assert_eq!(cert.keyfile, PathBuf::from("/path/to/key"));
+        }
+        other => panic!("expected token, got {:?}", other),
+    }
+    assert!(config.credentials_for(&other_registry()).is_none());
+}
+
+#[test]
+fn test_fixture_nerfed_mtls_userpass() {
+    let (_temp, config) = setup_config(&format!(
+        "//registry.example/:username = hello\n\
+         //registry.example/:_password = {B64_WORLD}\n\
+         //registry.example/:email = i@izs.me\n\
+         //registry.example/:certfile = /path/to/cert\n\
+         //registry.example/:keyfile = /path/to/key"
+    ));
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::BasicAuth {
+            username,
+            password,
+            cert,
+        } => {
+            assert_eq!(username, "hello");
+            assert_eq!(password, "world");
+            let cert = cert.expect("cert should be present");
+            assert_eq!(cert.certfile, PathBuf::from("/path/to/cert"));
+            assert_eq!(cert.keyfile, PathBuf::from("/path/to/key"));
+        }
+        other => panic!("expected basic auth, got {:?}", other),
+    }
+    assert_eq!(config.email_for(&default_registry()), Some("i@izs.me"));
+    assert!(config.credentials_for(&other_registry()).is_none());
+}
+
+#[test]
+fn test_fixture_def_userpass() {
+    // Top-level username/_password is legacy; upstream collects it as an
+    // unknown config rather than using it for the registry.
+    assert_no_credentials(
+        "def_userpass",
+        &format!(
+            "username = hello\n\
+             _password = {B64_WORLD}\n\
+             email = i@izs.me\n\
+             //registry.example/:always-auth = true\n"
+        ),
+    );
+}
+
+#[test]
+fn test_fixture_def_user_no_pass() {
+    assert_no_credentials(
+        "def_userNoPass",
+        "username = hello\nemail = i@izs.me\n//registry.example/:always-auth = true\n",
+    );
+}
+
+#[test]
+fn test_fixture_def_pass_no_user() {
+    assert_no_credentials(
+        "def_passNoUser",
+        &format!(
+            "_password = {B64_WORLD}\nemail = i@izs.me\n//registry.example/:always-auth = true\n"
+        ),
+    );
+}
+
+#[test]
+fn test_fixture_def_auth() {
+    assert_no_credentials(
+        "def_auth",
+        &format!("_auth = {B64_HELLO_WORLD}\nalways-auth = true"),
+    );
+}
+
+#[test]
+fn test_fixture_def_auth_env() {
+    // Upstream fixture is `_auth = ${PATH}`: the value expands, but a
+    // top-level _auth is still not registry credentials.
+    std::env::set_var("AUTHTEST_DEF_AUTH_ENV", B64_HELLO_WORLD);
+    assert_no_credentials("def_authEnv", "_auth = ${AUTHTEST_DEF_AUTH_ENV}");
+    std::env::remove_var("AUTHTEST_DEF_AUTH_ENV");
+}
+
+#[test]
+fn test_fixture_none_auth_token() {
+    assert_no_credentials("none_authToken", "_authToken = 0bad1de4");
+}
+
+#[test]
+fn test_fixture_none_lc_auth_token() {
+    // Lowercase `_authtoken`: keys are case-sensitive, so this is not auth.
+    assert_no_credentials("none_lcAuthToken", "_authtoken = 0bad1de4");
+}
+
+#[test]
+fn test_fixture_none_empty_config() {
+    assert_no_credentials("none_emptyConfig", "");
+}
+
+#[test]
+fn test_fixture_none_no_config() {
+    // Upstream `none_noConfig`: no .npmrc at all.
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("package.json"), "{}").unwrap();
+
+    let config = NpmrcConfig::load_with_options(LoadOptions {
+        cwd: Some(temp.path().to_path_buf()),
+        skip_user: true,
+        skip_global: true,
+        ..Default::default()
+    })
+    .unwrap();
+
+    assert!(config.credentials_for(&default_registry()).is_none());
+    assert!(config.credentials_for(&other_registry()).is_none());
+}
+
+// =============================================================================
+// Nerf-darted key handling
+// =============================================================================
+
+#[test]
+fn test_nerfed_auth_token_key_is_case_sensitive() {
+    let (_temp, config) = setup_config("//registry.example/:_authtoken = 0bad1de4");
+    assert!(config.credentials_for(&default_registry()).is_none());
+}
+
+#[test]
+fn test_credentials_do_not_leak_to_sibling_paths() {
+    let (_temp, config) = setup_config("//registry.example/npm/:_authToken = 0bad1de4");
+
+    let scoped = Url::parse("https://registry.example/npm/").unwrap();
+    assert!(config.credentials_for(&scoped).is_some());
+    assert!(config.credentials_for(&default_registry()).is_none());
+}
+
+// =============================================================================
+// Malformed credential values
+// =============================================================================
+
+#[test]
+fn test_invalid_base64_password_yields_no_credentials() {
+    let (_temp, config) = setup_config(
+        "//registry.example/:username = hello\n//registry.example/:_password = not!base64!",
+    );
+    assert!(config.credentials_for(&default_registry()).is_none());
+}
+
+#[test]
+fn test_invalid_base64_password_falls_back_to_legacy_auth() {
+    let (_temp, config) = setup_config(&format!(
+        "//registry.example/:username = hello\n\
+         //registry.example/:_password = not!base64!\n\
+         //registry.example/:_auth = {B64_HELLO_WORLD}"
+    ));
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::LegacyAuth { username, .. } => assert_eq!(username, "hello"),
+        other => panic!("expected legacy auth, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_invalid_base64_legacy_auth_yields_no_credentials() {
+    let (_temp, config) = setup_config("//registry.example/:_auth = not!base64!");
+    assert!(config.credentials_for(&default_registry()).is_none());
+}
+
+#[test]
+fn test_invalid_base64_password_still_reports_client_cert() {
+    let (_temp, config) = setup_config(
+        "//registry.example/:username = hello\n\
+         //registry.example/:_password = not!base64!\n\
+         //registry.example/:certfile = /path/to/cert\n\
+         //registry.example/:keyfile = /path/to/key",
+    );
+
+    match config.credentials_for(&default_registry()).unwrap() {
+        Credentials::ClientCertOnly(cert) => {
+            assert_eq!(cert.certfile, PathBuf::from("/path/to/cert"));
+        }
+        other => panic!("expected client cert only, got {:?}", other),
+    }
+}
+
+// =============================================================================
+// Email lookup (upstream returns this from getCredentialsByURI)
+// =============================================================================
+
+#[test]
+fn test_email_requires_nerf_darted_key() {
+    let (_temp, config) = setup_config("email = i@izs.me");
+    assert_eq!(config.email_for(&default_registry()), None);
+}
+
+#[test]
+fn test_email_without_other_credentials() {
+    let (_temp, config) = setup_config("//registry.example/:email = i@izs.me");
+    assert_eq!(config.email_for(&default_registry()), Some("i@izs.me"));
+    assert!(config.credentials_for(&default_registry()).is_none());
 }

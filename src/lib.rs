@@ -64,17 +64,21 @@
 
 mod auth;
 mod config;
+mod env_replace;
 mod error;
+mod nerf_dart;
 mod parser;
 mod paths;
 pub mod registry;
 
 // Re-export main types
-pub use auth::{nerf_dart, ClientCert, Credentials};
+pub use auth::{ClientCert, Credentials};
 pub use config::{ConfigData, LoadOptions, NpmrcConfig};
+pub use env_replace::expand_env_vars;
 pub use error::{Error, Result};
-pub use parser::{expand_env_vars, parse_bool};
+pub use nerf_dart::nerf_dart;
+pub use parser::parse_bool;
 pub use paths::{
-    expand_tilde, find_global_prefix, find_local_prefix, global_config_path, project_config_path,
-    user_config_path,
+    expand_tilde, find_global_prefix, find_local_prefix, global_config_path, global_prefix_from,
+    project_config_path, user_config_path,
 };
