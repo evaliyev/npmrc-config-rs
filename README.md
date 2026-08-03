@@ -140,6 +140,11 @@ if let Some(creds) = config.credentials_for(&registry) {
         // Ready to use in Authorization header
     }
 }
+
+// Email is configured per registry (`//registry/:email`) and looked up separately
+if let Some(email) = config.email_for(&registry) {
+    println!("Email: {}", email);
+}
 ```
 
 ## Error Handling

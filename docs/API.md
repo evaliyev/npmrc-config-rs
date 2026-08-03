@@ -18,6 +18,7 @@ Complete API documentation for the `npmrc-config-rs` crate.
   - [expand_tilde](#expand_tilde)
   - [parse_bool](#parse_bool)
   - [find_global_prefix](#find_global_prefix)
+  - [global_prefix_from](#global_prefix_from)
   - [find_local_prefix](#find_local_prefix)
   - [user_config_path](#user_config_path)
   - [global_config_path](#global_config_path)
@@ -107,6 +108,16 @@ pub fn credentials_for(&self, registry: &Url) -> Option<Credentials>
 ```
 
 Get credentials for a registry URL using nerf-darting to scope credentials.
+
+##### `email_for`
+
+```rust
+pub fn email_for(&self, registry: &Url) -> Option<&str>
+```
+
+Get the email configured for a registry (`//registry/:email`). Upstream returns
+this as part of `getCredentialsByURI`; here it is a separate lookup because
+`Credentials` models auth material only. Only the nerf-darted key is honored.
 
 ##### `has_project_config`
 
@@ -418,12 +429,30 @@ Returns `Some(true)` for "true", `Some(false)` for "false", and `None` for other
 pub fn find_global_prefix() -> Option<PathBuf>
 ```
 
-Find the global prefix by locating the node executable and deriving the prefix from its location.
+Find the global prefix, mirroring npm's `loadGlobalPrefix`.
 
-- **Unix**: Parent of parent of node executable (e.g., `/usr/local/bin/node` -> `/usr/local`)
+- `PREFIX` in the environment wins outright.
 - **Windows**: Parent of node executable (e.g., `c:\node\node.exe` -> `c:\node`)
+- **Unix**: Parent of parent of node executable (e.g., `/usr/local/bin/node` -> `/usr/local`), prefixed with `DESTDIR` when set.
 
-Returns `None` if node cannot be found.
+Returns `None` if `PREFIX` is unset and node cannot be found.
+
+---
+
+### global_prefix_from
+
+```rust
+pub fn global_prefix_from(
+    prefix_env: Option<&str>,
+    node_path: Option<&Path>,
+    destdir: Option<&str>,
+    windows: bool,
+) -> Option<PathBuf>
+```
+
+Derive the global prefix from explicit inputs, without reading the process
+environment. `destdir` is only respected when `windows` is `false`, matching
+upstream.
 
 ---
 

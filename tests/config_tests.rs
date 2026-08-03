@@ -1,9 +1,10 @@
-//! Configuration loading and priority tests.
+//! Configuration loading tests for `src/config.rs`.
 //!
-//! Tests the loading of .npmrc files from different locations and
-//! the priority/override behavior.
+//! Mirrors the "load from files and environment variables" subtests of
+//! `test/index.js` in @npmcli/config, minus the CLI/env/builtin levels this
+//! crate does not implement.
 
-use npmrc_config_rs::{LoadOptions, NpmrcConfig};
+use npmrc_config_rs::{Error, LoadOptions, NpmrcConfig};
 use std::fs;
 use tempfile::TempDir;
 
@@ -473,70 +474,129 @@ fn test_config_path_accessors() {
 }
 
 // =============================================================================
-// INI parsing edge cases
+// Read errors
+//
+// Upstream: "verbose log if config file read is weird error" - a file that
+// exists but cannot be read must not be silently treated as absent.
 // =============================================================================
 
 #[test]
-fn test_parse_comments() {
+fn test_unreadable_project_config_is_an_error() {
+    let temp = TempDir::new().unwrap();
+    let project_dir = temp.path().join("project");
+    fs::create_dir_all(&project_dir).unwrap();
+    fs::write(project_dir.join("package.json"), "{}").unwrap();
+    // A directory where the file should be: exists, but reading it fails
+    fs::create_dir(project_dir.join(".npmrc")).unwrap();
+
+    let err = NpmrcConfig::load_with_options(LoadOptions {
+        cwd: Some(project_dir),
+        skip_user: true,
+        skip_global: true,
+        ..Default::default()
+    })
+    .unwrap_err();
+
+    assert!(
+        matches!(err, Error::ReadFile { .. }),
+        "expected a read error, got {err:?}"
+    );
+}
+
+#[test]
+fn test_unreadable_user_config_is_an_error() {
+    let temp = TempDir::new().unwrap();
+    let user_config = temp.path().join(".npmrc");
+    fs::create_dir(&user_config).unwrap();
+
+    let err = NpmrcConfig::load_with_options(LoadOptions {
+        cwd: Some(temp.path().to_path_buf()),
+        user_config: Some(user_config),
+        skip_project: true,
+        skip_global: true,
+        ..Default::default()
+    })
+    .unwrap_err();
+
+    assert!(matches!(err, Error::ReadFile { .. }));
+}
+
+#[test]
+fn test_load_from_file_missing_is_file_not_found() {
+    let temp = TempDir::new().unwrap();
+    let missing = temp.path().join("nope.npmrc");
+
+    let err = NpmrcConfig::load_from_file(&missing).unwrap_err();
+    assert!(matches!(err, Error::FileNotFound(path) if path == missing));
+}
+
+#[test]
+fn test_load_from_file_unreadable_is_read_error() {
+    let temp = TempDir::new().unwrap();
+    let path = temp.path().join("dir.npmrc");
+    fs::create_dir(&path).unwrap();
+
+    let err = NpmrcConfig::load_from_file(&path).unwrap_err();
+    assert!(matches!(err, Error::ReadFile { .. }));
+}
+
+// =============================================================================
+// Invalid registry URLs
+// =============================================================================
+
+#[test]
+fn test_invalid_default_registry_falls_back_to_npmjs() {
+    let (_temp, opts) = setup_full_environment(None, None, Some("registry = not a valid url"));
+    let config = NpmrcConfig::load_with_options(opts).unwrap();
+
+    assert_eq!(
+        config.default_registry().as_str(),
+        "https://registry.npmjs.org/"
+    );
+}
+
+#[test]
+fn test_invalid_scoped_registry_falls_back_to_default() {
     let (_temp, opts) = setup_full_environment(
         None,
         None,
-        Some(
-            r#"
-# This is a comment
-; This is also a comment
-key = value
-# Another comment
-"#,
-        ),
+        Some("registry = https://default.example.com/\n@myorg:registry = not a valid url"),
     );
-
     let config = NpmrcConfig::load_with_options(opts).unwrap();
-    assert_eq!(config.get("key"), Some("value"));
-}
 
-#[test]
-fn test_parse_empty_lines() {
-    let (_temp, opts) = setup_full_environment(
-        None,
-        None,
-        Some(
-            r#"
-
-key1 = value1
-
-key2 = value2
-
-"#,
-        ),
+    assert_eq!(
+        config.registry_for("@myorg/package").as_str(),
+        "https://default.example.com/"
     );
-
-    let config = NpmrcConfig::load_with_options(opts).unwrap();
-    assert_eq!(config.get("key1"), Some("value1"));
-    assert_eq!(config.get("key2"), Some("value2"));
+    assert!(!config.scoped_registries().contains_key("@myorg"));
 }
 
-#[test]
-fn test_parse_no_spaces_around_equals() {
-    let (_temp, opts) = setup_full_environment(None, None, Some("key=value"));
-
-    let config = NpmrcConfig::load_with_options(opts).unwrap();
-    assert_eq!(config.get("key"), Some("value"));
-}
-
-#[test]
-fn test_parse_value_with_equals() {
-    let (_temp, opts) = setup_full_environment(None, None, Some("key = value=with=equals"));
-
-    let config = NpmrcConfig::load_with_options(opts).unwrap();
-    assert_eq!(config.get("key"), Some("value=with=equals"));
-}
+// =============================================================================
+// Overlapping config locations
+//
+// Upstream: "do not double-load project/user config" - when the project and
+// user .npmrc resolve to the same file, its values must still apply once.
+// =============================================================================
 
 #[test]
-fn test_parse_whitespace_in_value() {
-    let (_temp, opts) = setup_full_environment(None, None, Some("key =   value with spaces   "));
+fn test_project_and_user_config_same_file() {
+    let temp = TempDir::new().unwrap();
+    let dir = temp.path();
+    fs::write(dir.join("package.json"), "{}").unwrap();
+    fs::write(dir.join(".npmrc"), "registry = https://same.example.com/").unwrap();
 
-    let config = NpmrcConfig::load_with_options(opts).unwrap();
-    // Value should be trimmed
-    assert_eq!(config.get("key"), Some("value with spaces"));
+    let config = NpmrcConfig::load_with_options(LoadOptions {
+        cwd: Some(dir.to_path_buf()),
+        user_config: Some(dir.join(".npmrc")),
+        skip_global: true,
+        ..Default::default()
+    })
+    .unwrap();
+
+    assert_eq!(
+        config.default_registry().as_str(),
+        "https://same.example.com/"
+    );
+    assert!(config.has_project_config());
+    assert!(config.has_user_config());
 }

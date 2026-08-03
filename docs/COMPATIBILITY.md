@@ -38,6 +38,12 @@ This document compares the Rust port (`npmrc-config-rs`) with [@npmcli/config v1
 | Scoped registries | Yes | Yes |
 | Credentials lookup | Yes | Yes |
 | Nerf-darting | Yes | Yes |
+| Registry email | Yes (in credentials) | Yes (`email_for()`) |
+| **Prefixes** | | |
+| Global prefix from `PREFIX` | Yes | Yes |
+| Global prefix from node executable | Yes | Yes |
+| `DESTDIR` (Unix only) | Yes | Yes |
+| Local prefix discovery | Yes | Yes |
 
 ## What's Included
 
@@ -61,6 +67,25 @@ This document compares the Rust port (`npmrc-config-rs`) with [@npmcli/config v1
 Upstream warns about unknown `.npmrc` keys by default and can reject them with
 `strict-npmrc`. This crate accepts unknown keys because validation is outside
 its read-only scope.
+
+## Test Parity
+
+Test files are ported 1:1 from the upstream suite, and their module doc comments
+name the upstream file they mirror:
+
+| Upstream test | Rust test |
+|---|---|
+| `test/nerf-dart.js` | `tests/nerf_dart_tests.rs` |
+| `test/env-replace.js` | `tests/env_replace_tests.rs` |
+| `test/index.js` - `credentials management` | `tests/auth_tests.rs` (upstream fixture names kept) |
+| `test/index.js` - config loading and levels | `tests/config_tests.rs` |
+| `test/index.js` - global/local prefix | `tests/paths_tests.rs` |
+
+Upstream tests for unimplemented features have no counterpart here:
+`test/parse-field.js` (typed fields), `test/set-envs.js`, `test/type-defs.js`,
+`test/type-description.js`, `test/definitions/*`, `test/extension-file.js`, and
+the `test/index.js` subtests for CLI parsing, `npm_config_*` env vars,
+workspaces, `cafile`, `umask`, and `validate()`/`repair()`.
 
 ## Use Cases
 

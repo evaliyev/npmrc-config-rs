@@ -3,8 +3,9 @@
 //! This module contains the main `NpmrcConfig` struct and related types
 //! for loading and querying npm configuration.
 
-use crate::auth::{decode_password, nerf_dart, parse_legacy_auth, ClientCert, Credentials};
+use crate::auth::{decode_password, parse_legacy_auth, ClientCert, Credentials};
 use crate::error::{Error, Result};
+use crate::nerf_dart::nerf_dart;
 use crate::parser::parse_npmrc;
 use crate::paths::{
     expand_tilde, find_global_prefix, find_local_prefix, global_config_path, project_config_path,
@@ -322,6 +323,16 @@ impl NpmrcConfig {
 
         // Return client cert only if no other auth was found
         cert.map(Credentials::ClientCertOnly)
+    }
+
+    /// Get the email configured for a registry (`//registry/:email`).
+    ///
+    /// Upstream returns `email` as part of `getCredentialsByURI`; here it is a
+    /// separate lookup because [`Credentials`] models auth material only.
+    /// Like credentials, only the nerf-darted key is honored - a top-level
+    /// `email` is legacy and ignored.
+    pub fn email_for(&self, registry: &Url) -> Option<&str> {
+        self.get(&format!("{}:email", nerf_dart(registry)))
     }
 
     /// Get client certificate configuration for a nerf-darted key.

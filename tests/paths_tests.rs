@@ -1,12 +1,14 @@
-//! Path resolution tests.
+//! Path resolution tests for `src/paths.rs`.
 //!
-//! Tests for finding global prefix, local prefix, and expanding paths.
+//! Mirrors the "finding the global prefix" and "finding the local prefix"
+//! subtests of `test/index.js` in @npmcli/config, plus `~` expansion.
 
 use npmrc_config_rs::{
-    expand_tilde, find_local_prefix, global_config_path, project_config_path, user_config_path,
+    expand_tilde, find_local_prefix, global_config_path, global_prefix_from, project_config_path,
+    user_config_path,
 };
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 // =============================================================================
@@ -208,4 +210,109 @@ fn test_tilde_with_backslash() {
     let result = expand_tilde("~\\.npmrc");
     // Should not expand because there's no / after ~
     assert_eq!(result, PathBuf::from("~\\.npmrc"));
+}
+
+// =============================================================================
+// Global prefix resolution (upstream: "finding the global prefix")
+// =============================================================================
+
+#[test]
+fn test_global_prefix_from_prefix_env() {
+    assert_eq!(
+        global_prefix_from(
+            Some("/prefix/env"),
+            Some(Path::new("/path/to/nodejs/bin/node")),
+            None,
+            false
+        ),
+        Some(PathBuf::from("/prefix/env"))
+    );
+}
+
+#[test]
+fn test_global_prefix_env_wins_over_destdir_and_exec_path() {
+    assert_eq!(
+        global_prefix_from(
+            Some("/prefix/env"),
+            Some(Path::new("/path/to/nodejs/bin/node")),
+            Some("/some/dest/dir"),
+            false
+        ),
+        Some(PathBuf::from("/prefix/env"))
+    );
+}
+
+#[test]
+fn test_global_prefix_from_exec_path_win32() {
+    assert_eq!(
+        global_prefix_from(
+            None,
+            Some(Path::new("/path/to/nodejs/node.exe")),
+            None,
+            true
+        ),
+        Some(PathBuf::from("/path/to/nodejs"))
+    );
+}
+
+#[test]
+fn test_global_prefix_from_exec_path_posix() {
+    assert_eq!(
+        global_prefix_from(
+            None,
+            Some(Path::new("/path/to/nodejs/bin/node")),
+            None,
+            false
+        ),
+        Some(PathBuf::from("/path/to/nodejs"))
+    );
+}
+
+#[test]
+fn test_global_prefix_from_exec_path_with_destdir_posix() {
+    assert_eq!(
+        global_prefix_from(
+            None,
+            Some(Path::new("/path/to/nodejs/bin/node")),
+            Some("/some/dest/dir"),
+            false
+        ),
+        Some(PathBuf::from("/some/dest/dir/path/to/nodejs"))
+    );
+}
+
+#[test]
+fn test_global_prefix_destdir_ignored_on_windows() {
+    // Upstream: "destdir only is respected on Unix"
+    assert_eq!(
+        global_prefix_from(
+            None,
+            Some(Path::new("/path/to/nodejs/node.exe")),
+            Some("/some/dest/dir"),
+            true
+        ),
+        Some(PathBuf::from("/path/to/nodejs"))
+    );
+}
+
+#[test]
+fn test_global_prefix_empty_env_values_are_ignored() {
+    assert_eq!(
+        global_prefix_from(
+            Some(""),
+            Some(Path::new("/path/to/nodejs/bin/node")),
+            Some(""),
+            false
+        ),
+        Some(PathBuf::from("/path/to/nodejs"))
+    );
+}
+
+#[test]
+fn test_global_prefix_without_node_or_prefix_env() {
+    assert_eq!(global_prefix_from(None, None, None, false), None);
+    assert_eq!(
+        global_prefix_from(None, None, Some("/some/dest/dir"), false),
+        None
+    );
 }

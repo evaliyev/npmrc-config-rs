@@ -5,29 +5,70 @@
 
 use std::path::{Path, PathBuf};
 
-/// Find the global prefix by locating the node executable and deriving
-/// the prefix from its location.
+/// Find the global prefix, mirroring npm's `loadGlobalPrefix`.
 ///
-/// - **Unix**: Parent of parent of node executable (e.g., `/usr/local/bin/node` -> `/usr/local`)
+/// - `PREFIX` in the environment wins outright.
 /// - **Windows**: Parent of node executable (e.g., `c:\node\node.exe` -> `c:\node`)
+/// - **Unix**: Parent of parent of node executable (e.g., `/usr/local/bin/node` -> `/usr/local`),
+///   prefixed with `DESTDIR` when set.
 ///
-/// Returns `None` if node cannot be found.
+/// Returns `None` if `PREFIX` is unset and node cannot be found.
 pub fn find_global_prefix() -> Option<PathBuf> {
-    let node_path = which::which("node").ok()?;
+    global_prefix_from(
+        std::env::var("PREFIX").ok().as_deref(),
+        which::which("node").ok().as_deref(),
+        std::env::var("DESTDIR").ok().as_deref(),
+        cfg!(windows),
+    )
+}
 
-    #[cfg(windows)]
-    {
-        // c:\node\node.exe --> prefix=c:\node\
-        node_path.parent().map(|p| p.to_path_buf())
+/// Derive the global prefix from explicit inputs.
+///
+/// Split out from [`find_global_prefix`] so the resolution rules can be tested
+/// without mutating the process environment. `DESTDIR` is only respected on
+/// non-Windows platforms, matching upstream.
+///
+/// # Examples
+///
+/// ```
+/// use std::path::{Path, PathBuf};
+/// use npmrc_config_rs::global_prefix_from;
+///
+/// let node = Path::new("/path/to/nodejs/bin/node");
+/// assert_eq!(
+///     global_prefix_from(None, Some(node), None, false),
+///     Some(PathBuf::from("/path/to/nodejs"))
+/// );
+/// assert_eq!(
+///     global_prefix_from(Some("/prefix/env"), Some(node), None, false),
+///     Some(PathBuf::from("/prefix/env"))
+/// );
+/// ```
+pub fn global_prefix_from(
+    prefix_env: Option<&str>,
+    node_path: Option<&Path>,
+    destdir: Option<&str>,
+    windows: bool,
+) -> Option<PathBuf> {
+    if let Some(prefix) = prefix_env.filter(|p| !p.is_empty()) {
+        return Some(PathBuf::from(prefix));
     }
 
-    #[cfg(not(windows))]
-    {
-        // /usr/local/bin/node --> prefix=/usr/local
-        node_path
-            .parent()
-            .and_then(|p| p.parent())
-            .map(|p| p.to_path_buf())
+    let node_path = node_path?;
+
+    if windows {
+        // c:\node\node.exe --> prefix=c:\node
+        return node_path.parent().map(|p| p.to_path_buf());
+    }
+
+    // /usr/local/bin/node --> prefix=/usr/local
+    let prefix = node_path.parent().and_then(|p| p.parent())?;
+
+    // destdir is only respected on Unix
+    match destdir.filter(|d| !d.is_empty()) {
+        // join() with an absolute path would discard destdir, so strip the root
+        Some(destdir) => Some(Path::new(destdir).join(prefix.strip_prefix("/").unwrap_or(prefix))),
+        None => Some(prefix.to_path_buf()),
     }
 }
 
