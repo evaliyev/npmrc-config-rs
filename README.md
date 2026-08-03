@@ -13,6 +13,7 @@ This crate provides functionality to load npm configuration from `.npmrc` files 
 - **Full authentication support** - Bearer tokens, basic auth, legacy auth, and mTLS client certificates
 - **Environment variable expansion** - Support for `${VAR}` and `${VAR?}` syntax in config values
 - **Path expansion** - Automatic `~` expansion to home directory
+- **npm prefix discovery** - Global prefix from `PREFIX`, the node executable, and `DESTDIR`; local prefix by walking up to `package.json` or `node_modules`
 
 ## Documentation
 
