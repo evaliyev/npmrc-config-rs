@@ -17,7 +17,24 @@ format:
 lint: check-cargo check-formatting check-clippy
 
 # Run the complete pre-PR validation suite.
-check: lint test docs msrv
+check: lint test docs msrv upstream-check
+
+# Detect drift from the pinned @npmcli/config version.
+upstream-check:
+    node upstream/check.mjs
+
+# Detect drift against the pinned version only, skipping the newer-tag probe.
+# Upstream sources still need to be fetched once; they are cached per tag after that.
+upstream-check-pinned:
+    node upstream/check.mjs --no-tag-probe
+
+# Regenerate upstream-derived case tables at the pinned version.
+upstream-sync:
+    node upstream/sync.mjs
+
+# Repin to the newest config-v* tag, then regenerate.
+upstream-sync-bump:
+    node upstream/sync.mjs --bump
 
 # Check compilation using the lockfile.
 check-cargo:

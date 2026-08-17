@@ -70,8 +70,27 @@ its read-only scope.
 
 ## Test Parity
 
-Test files are ported 1:1 from the upstream suite, and their module doc comments
-name the upstream file they mirror:
+The upstream JavaScript suite is the source of truth, and parity is enforced
+mechanically rather than by periodic manual review. See
+[`upstream/README.md`](../upstream/README.md) for the harness.
+
+`upstream/parity.json` records a verdict for every one of upstream's 207 tests:
+either the Rust test that ports it or an explicit reason it is unported. At
+`config-v11.0.1` that is 30 mapped and 177 unported. `just upstream-check` fails
+if an upstream test has no verdict, if a mapping names a Rust test that no longer
+exists, if a rule matches nothing upstream, or if any pinned upstream file's
+content hash changes.
+
+Assertions that upstream expresses as data are generated, not transcribed:
+
+| Upstream source | Generated table | Consumed by |
+|---|---|---|
+| `test/nerf-dart.js` | `tests/generated/nerf_dart_cases.rs` (24 URL pairs) | `tests/upstream_parity_tests.rs` |
+| `test/env-replace.js` | `tests/generated/env_replace_cases.rs` (15 cases) | `tests/upstream_parity_tests.rs` |
+| `test/index.js` + tap snapshots | `tests/generated/credentials_cases.rs` (15 fixtures) | `tests/upstream_parity_tests.rs` |
+
+The hand-written test files remain as readable named cases and cover behaviour
+with no upstream counterpart:
 
 | Upstream test | Rust test |
 |---|---|
@@ -86,6 +105,25 @@ Upstream tests for unimplemented features have no counterpart here:
 `test/type-description.js`, `test/definitions/*`, `test/extension-file.js`, and
 the `test/index.js` subtests for CLI parsing, `npm_config_*` env vars,
 workspaces, `cafile`, `umask`, and `validate()`/`repair()`.
+
+## Known Behavioural Divergences
+
+Places where this crate deliberately differs from @npmcli/config v11.0.1, beyond
+simply omitting a feature:
+
+1. **Unreadable config files are fatal.** Upstream's `verbose log if config file
+   read is weird error` asserts that a non-`ENOENT` read failure is logged and
+   `load()` still resolves. This crate returns `Error::ReadFile` instead.
+2. **No top-level `email` fallback.** Upstream's `getCredentialsByURI` reads
+   `this.get('${nerfed}:email') || this.get('email')`. This crate only honours
+   the nerf-darted key, matching npm 12's direction (where top-level `email` is
+   a hard error) rather than v11.0.1's literal behaviour.
+3. **Same-file project/user config is loaded as both levels.** Upstream dedups,
+   marking the project source `(same as "user" config, ignored)`. The merged
+   values agree; the source bookkeeping does not.
+4. **Fixtures upstream routes through `repair()`** (`def_authEnv`) are skipped
+   rather than asserted, since `repair()` is unported. The generated table marks
+   them `Expect::SkipNeedsRepair` so the gap stays visible.
 
 ## Use Cases
 

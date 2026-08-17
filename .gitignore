@@ -13,6 +13,13 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# Fetched @npmcli/config sources for the upstream parity harness.
+# Re-downloaded on demand; the generated tables under tests/generated/ are committed.
+upstream/.cache/
+
+# Per-developer Claude Code permissions
+.claude/settings.local.json
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

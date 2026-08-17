@@ -48,6 +48,21 @@ jobs:
       - run: just check-cargo
       - run: just check-clippy
 
+  upstream:
+    name: Upstream parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
+      # Pinned-version check only: a new upstream release is reported by the
+      # scheduled upstream-drift workflow, not by failing every open PR.
+      - run: just upstream-check-pinned
+
   format:
     name: Format
     runs-on: ubuntu-latest

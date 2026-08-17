@@ -1,0 +1,329 @@
+{
+  "_comment": [
+    "Verdict for every test in the upstream @npmcli/config suite. `just upstream-check`",
+    "fails when an upstream test has no verdict, when a mapping points at a Rust test",
+    "that no longer exists, or when a mapped upstream test disappears.",
+    "",
+    "Rules are matched per file, first match wins, so put exact names before wildcards.",
+    "  match: an exact upstream test name, \"prefix:foo\" or \"*\"",
+    "  rust:  the Rust test fn (or array of fns) that ports it",
+    "  unported: why there is deliberately no Rust counterpart",
+    "",
+    "upstream_file_hashes is the real tripwire: any upstream content change trips it",
+    "even if the test-name extraction misses something."
+  ],
+  "upstream_version": "config-v11.0.1",
+  "upstream_file_hashes": {
+    "test/index.js": "39134240fa6c106b",
+    "test/nerf-dart.js": "67603272656c5171",
+    "test/env-replace.js": "f47768226f61886b",
+    "test/parse-field.js": "2468ce32e76c1e5b",
+    "test/set-envs.js": "c1dbd8d29b2ae185",
+    "test/type-defs.js": "ca210fece9476b38",
+    "test/type-description.js": "f0ab260d1701a92f",
+    "test/extension-file.js": "d9f260d19874adf4",
+    "test/definitions/definition.js": "f73ef900453387ba",
+    "test/definitions/definitions.js": "abbc70483a84552e",
+    "test/definitions/index.js": "1f1cc83e29ca410c",
+    "tap-snapshots/test/index.js.test.cjs": "1852816897d2bb1d"
+  },
+  "rules": [
+    {
+      "file": "test/nerf-dart.js",
+      "match": "*",
+      "rust": "test_upstream_nerf_dart_cases",
+      "note": "Upstream names each subtest after the expected nerf dart; the generated table covers every URL in both."
+    },
+
+    {
+      "file": "test/index.js",
+      "match": "credentials management",
+      "rust": "test_upstream_credential_fixtures"
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:nerfed_",
+      "rust": "test_upstream_credential_fixtures",
+      "note": "Fixture subtests inside `credentials management`, driven by the generated table."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:def_",
+      "rust": "test_upstream_credential_fixtures"
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:none_",
+      "rust": "test_upstream_credential_fixtures"
+    },
+    {
+      "file": "test/index.js",
+      "match": "nerfdart auths set at the top level now throw in npm 12",
+      "unported": "Depends on validate(), which is out of scope for a read-only port."
+    },
+    {
+      "file": "test/index.js",
+      "match": "nerf-darted email still loads",
+      "rust": "test_email_without_other_credentials"
+    },
+
+    {
+      "file": "test/index.js",
+      "match": "finding the global prefix",
+      "rust": [
+        "test_global_prefix_from_prefix_env",
+        "test_global_prefix_from_exec_path_win32",
+        "test_global_prefix_from_exec_path_posix",
+        "test_global_prefix_from_exec_path_with_destdir_posix"
+      ]
+    },
+    {
+      "file": "test/index.js",
+      "match": "load from PREFIX env",
+      "rust": "test_global_prefix_from_prefix_env"
+    },
+    {
+      "file": "test/index.js",
+      "match": "load from execPath, win32",
+      "rust": "test_global_prefix_from_exec_path_win32"
+    },
+    {
+      "file": "test/index.js",
+      "match": "load from execPath, posix",
+      "rust": "test_global_prefix_from_exec_path_posix"
+    },
+    {
+      "file": "test/index.js",
+      "match": "load from execPath with destdir, posix",
+      "rust": "test_global_prefix_from_exec_path_with_destdir_posix"
+    },
+
+    {
+      "file": "test/index.js",
+      "match": "finding the local prefix",
+      "rust": [
+        "test_find_local_prefix_with_node_modules",
+        "test_find_local_prefix_with_package_json",
+        "test_find_local_prefix_fallback_for_nonexistent_cwd"
+      ]
+    },
+    {
+      "file": "test/index.js",
+      "match": "has node_modules",
+      "rust": "test_find_local_prefix_with_node_modules"
+    },
+    {
+      "file": "test/index.js",
+      "match": "has package.json",
+      "rust": "test_find_local_prefix_with_package_json"
+    },
+    {
+      "file": "test/index.js",
+      "match": "nada, just use cwd",
+      "rust": "test_find_local_prefix_fallback_for_nonexistent_cwd"
+    },
+    {
+      "file": "test/index.js",
+      "match": "explicit cli prefix",
+      "unported": "Requires CLI argument parsing, which this crate does not implement."
+    },
+
+    {
+      "file": "test/index.js",
+      "match": "do not double-load project/user config",
+      "rust": "test_project_and_user_config_same_file",
+      "note": "Partial: the Rust test asserts the merged value, not upstream's '(same as \"user\" config, ignored)' source dedup."
+    },
+    {
+      "file": "test/index.js",
+      "match": "verbose log if config file read is weird error",
+      "rust": [
+        "test_unreadable_project_config_is_an_error",
+        "test_unreadable_user_config_is_an_error"
+      ],
+      "note": "DIVERGENT: upstream logs and continues; this crate returns Error::ReadFile. Tracked in docs/COMPATIBILITY.md."
+    },
+    {
+      "file": "test/index.js",
+      "match": "dont let userconfig be the same as builtin config",
+      "unported": "No builtin config level."
+    },
+    {
+      "file": "test/index.js",
+      "match": "dont load project config if global is true",
+      "unported": "Global mode comes from CLI/env, which are unported; use LoadOptions::skip_project."
+    },
+    {
+      "file": "test/index.js",
+      "match": "dont load project config if location is global",
+      "unported": "Global mode comes from CLI/env, which are unported; use LoadOptions::skip_project."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:load configs from",
+      "unported": "Exercises the cli/env/builtin levels; the file-level equivalents live in tests/config_tests.rs."
+    },
+    {
+      "file": "test/index.js",
+      "match": "normalize config env keys",
+      "unported": "No npm_config_* environment support."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:cafile",
+      "unported": "cafile/ca flattening is not part of the read-only surface."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:ignore cafile",
+      "unported": "cafile/ca flattening is not part of the read-only surface."
+    },
+    {
+      "file": "test/index.js",
+      "match": "raise error if reading ca file error other than ENOENT",
+      "unported": "cafile/ca flattening is not part of the read-only surface."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:setting ",
+      "unported": "Write operations (set/save) are out of scope."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:checkUnknown",
+      "unported": "No unknown-config tracking or repair()."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:repair()",
+      "unported": "No repair()."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:publishConfig",
+      "unported": "No publishConfig handling."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:getUnknown",
+      "unported": "No unknown-config tracking."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:workspace",
+      "unported": "No workspace auto-detection."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:finds ",
+      "unported": "No workspace auto-detection."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:warns when workspace",
+      "unported": "No workspace auto-detection."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:exclusive options",
+      "unported": "Requires CLI/env levels."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:exclusive env option",
+      "unported": "Requires CLI/env levels."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:umask",
+      "unported": "Typed umask fields are unported."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:min-release-age",
+      "unported": "before/min-release-age are typed CLI/env definitions, unported."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:before and min-release-age",
+      "unported": "before/min-release-age are typed CLI/env definitions, unported."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:CLI --min-release-age",
+      "unported": "Requires CLI parsing."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:env npm_config_min_release_age",
+      "unported": "Requires npm_config_* env support."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:within a single source",
+      "unported": "Requires CLI/env levels."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:higher-priority min-release-age",
+      "unported": "Requires CLI/env levels."
+    },
+    {
+      "file": "test/index.js",
+      "match": "prefix:global-ignore-file",
+      "unported": "Definition defaults/flattening are unported."
+    },
+    {
+      "file": "test/index.js",
+      "match": "*",
+      "unported": "Exercises Config behaviour outside this crate's read-only, file-only scope (CLI parsing, env levels, builtin config, flatten, validate/repair, save). See docs/COMPATIBILITY.md."
+    },
+
+    {
+      "file": "test/env-replace.js",
+      "match": "*",
+      "rust": "test_upstream_env_replace_cases",
+      "note": "Flat assertions with no t.test names; the generated table covers all of them."
+    },
+    {
+      "file": "test/parse-field.js",
+      "match": "*",
+      "unported": "Typed field coercion depends on the definitions table, which is unported."
+    },
+    {
+      "file": "test/set-envs.js",
+      "match": "*",
+      "unported": "No npm_config_* environment export."
+    },
+    {
+      "file": "test/type-defs.js",
+      "match": "*",
+      "unported": "No type system."
+    },
+    {
+      "file": "test/type-description.js",
+      "match": "*",
+      "unported": "No type system."
+    },
+    {
+      "file": "test/extension-file.js",
+      "match": "*",
+      "unported": "extension-file is a CLI/flatOptions feature."
+    },
+    {
+      "file": "test/definitions/definition.js",
+      "match": "*",
+      "unported": "No definitions table."
+    },
+    {
+      "file": "test/definitions/definitions.js",
+      "match": "*",
+      "unported": "No definitions table."
+    },
+    {
+      "file": "test/definitions/index.js",
+      "match": "*",
+      "unported": "No definitions table."
+    }
+  ]
+}

@@ -19,6 +19,8 @@ Module layout tracks the upstream package so a contributor who knows the JavaScr
 
 `tests/integration_tests.rs` is the one cross-module file, covering end-to-end workflows with no single upstream counterpart.
 
+`tests/upstream_parity_tests.rs` runs case tables generated from the upstream suite by the harness in `upstream/` (see [`upstream/README.md`](upstream/README.md)). Never hand-edit `tests/generated/*.rs`; run `just upstream-sync`. When upstream changes, `just upstream-check` reports exactly what drifted, and `/upstream-sync` reconciles it. Every upstream test needs a verdict in `upstream/parity.json` — either the Rust test that ports it or an explicit reason it is unported.
+
 When porting a behavior, name the Rust test after the upstream case (fixture names such as `nerfed_authToken` are kept verbatim) and reference the upstream file in the module doc comment. Keep focused unit tests beside their modules for crate-private helpers; put public API and filesystem behavior in `tests/*_tests.rs`. New modules must arrive with their matching `tests/<module>_tests.rs`. User-facing references belong in `docs/`; update `README.md` when public usage changes, and `docs/COMPATIBILITY.md` when parity with upstream changes. Do not commit generated `target/` contents.
 
 ## Build, Test, and Development Commands
